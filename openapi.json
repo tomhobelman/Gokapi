@@ -252,6 +252,71 @@
         }
       }
     },
+    "/files/replace": {
+      "post": {
+        "tags": [
+          "files"
+        ],
+        "summary": "Replaces an existing file",
+        "description": "This API call replaces the content of an existing file while keeping its metadata. Optionally updates the filename. Requires permission EDIT",
+        "operationId": "replaceFile",
+        "security": [
+          {
+            "apikey": ["EDIT"]
+          },
+          {
+            "session": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "ID of the file to replace"
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "New file content"
+                  },
+                  "updatefilename": {
+                    "type": "boolean",
+                    "description": "If true, update the filename to match the new file. Default is false."
+                  }
+                },
+                "required": ["id", "file"]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Operation successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/File"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Invalid API key provided or not logged in as admin"
+          },
+          "404": {
+            "description": "File not found"
+          }
+        }
+      }
+    },
     "/files/modify": {
       "put": {
         "tags": [

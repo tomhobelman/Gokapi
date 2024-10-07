@@ -46,6 +46,8 @@ func Process(w http.ResponseWriter, r *http.Request, maxMemory int) {
 		changeFriendlyName(w, request)
 	case "/auth/modify":
 		modifyApiPermission(w, request)
+	case "/files/replace":
+		replaceFile(w, request, maxMemory)
 	default:
 		sendError(w, http.StatusBadRequest, "Invalid request")
 	}
@@ -122,6 +124,8 @@ func getApiPermissionRequired(requestUrl string) (uint8, bool) {
 		return models.ApiPermApiMod, true
 	case "/auth/modify":
 		return models.ApiPermApiMod, true
+	case "/files/replace":
+		return models.ApiPermEdit, true
 	default:
 		return models.ApiPermNone, false
 	}
@@ -502,4 +506,42 @@ func IsValidApiKey(key string, modifyTime bool, requiredPermission uint8) bool {
 		return savedKey.HasPermission(requiredPermission)
 	}
 	return false
+}
+
+func replaceFile(w http.ResponseWriter, request apiRequest, maxMemory int) {
+	// Parse the multipart form data
+	err := request.request.ParseMultipartForm(int64(maxMemory))
+	if err != nil {
+		sendError(w, http.StatusBadRequest, "Error parsing form data: "+err.Error())
+		return
+	}
+
+	// Get the file ID from the form data
+	fileId := request.request.FormValue("id")
+	if fileId == "" {
+		sendError(w, http.StatusBadRequest, "File ID is required")
+		return
+	}
+
+	// Get the file from the form data
+	file, fileHeader, err := request.request.FormFile("file")
+	if err != nil {
+		sendError(w, http.StatusBadRequest, "No file uploaded: "+err.Error())
+		return
+	}
+	defer file.Close()
+
+	// Check if we should update the filename
+	updateFilename, _ := strconv.ParseBool(request.request.FormValue("updatefilename"))
+
+	maxUpload := int64(configuration.Get().MaxFileSizeMB) * 1024 * 1024
+	request.request.Body = http.MaxBytesReader(w, request.request.Body, maxUpload)
+
+	updatedFile, err := storage.ReplaceFile(fileId, file, fileHeader, updateFilename)
+	if err != nil {
+		sendError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	outputFileInfo(w, updatedFile)
 }
