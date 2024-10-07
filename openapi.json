@@ -285,7 +285,7 @@
                   },
                   "updatefilename": {
                     "type": "boolean",
-                    "description": "If true, update the filename to match the new file. Default is false."
+                    "description": "If true, update the filename to match the new file. Default is true."
                   }
                 },
                 "required": ["id", "file"]
