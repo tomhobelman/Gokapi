@@ -531,8 +531,11 @@ func replaceFile(w http.ResponseWriter, request apiRequest, maxMemory int) {
 	}
 	defer file.Close()
 
-	// Check if we should update the filename
-	updateFilename, _ := strconv.ParseBool(request.request.FormValue("updatefilename"))
+	// Check if we should update the filename, default to true if not set
+	updateFilename := true
+	if val := request.request.FormValue("updatefilename"); val != "" {
+		updateFilename, _ = strconv.ParseBool(val)
+	}
 
 	maxUpload := int64(configuration.Get().MaxFileSizeMB) * 1024 * 1024
 	request.request.Body = http.MaxBytesReader(w, request.request.Body, maxUpload)
