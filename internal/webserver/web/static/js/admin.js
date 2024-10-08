@@ -642,15 +642,11 @@ function showToast() {
     }, 1000);
 }
 
-function showReplaceModal(id) {
-    document.getElementById("replaceid").value = id;
-    new bootstrap.Modal('#modalreplace', {}).show();
-}
-
 function replaceFile() {
     const fileInput = document.getElementById('replacefile');
     const file = fileInput.files[0];
     const id = document.getElementById('replaceid').value;
+    const updateFilename = document.getElementById('updateFilename').checked;
 
     if (!file) {
         alert('Please select a file to upload.');
@@ -660,7 +656,7 @@ function replaceFile() {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('id', id);
-    formData.append('updatefilename', 'true');
+    formData.append('updatefilename', updateFilename.toString());
 
     fetch('./api/files/replace', {
         method: 'POST',
@@ -687,7 +683,10 @@ function replaceFile() {
 function updateRowAfterReplace(fileInfo) {
     const row = document.querySelector(`tr:has(#cell-name-${fileInfo.Id})`);
     if (row) {
-        row.cells[0].textContent = fileInfo.Name;
+        // Only update the filename if it was changed
+        if (row.cells[0].textContent !== fileInfo.Name) {
+            row.cells[0].textContent = fileInfo.Name;
+        }
         row.cells[1].textContent = fileInfo.Size;
         row.cells[1].setAttribute('data-order', fileInfo.SizeBytes);
         // Update other cells as needed
@@ -698,4 +697,10 @@ function updateRowAfterReplace(fileInfo) {
             row.style.backgroundColor = "";
         }, 3000);
     }
+}
+
+function showReplaceModal(id) {
+    document.getElementById("replaceid").value = id;
+    document.getElementById("updateFilename").checked = true; // Reset checkbox to checked state
+    new bootstrap.Modal('#modalreplace', {}).show();
 }
