@@ -641,3 +641,61 @@ function showToast() {
         notification.classList.remove("show");
     }, 1000);
 }
+
+function showReplaceModal(id) {
+    document.getElementById("replaceid").value = id;
+    new bootstrap.Modal('#modalreplace', {}).show();
+}
+
+function replaceFile() {
+    const fileInput = document.getElementById('replacefile');
+    const file = fileInput.files[0];
+    const id = document.getElementById('replaceid').value;
+
+    if (!file) {
+        alert('Please select a file to upload.');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('id', id);
+    formData.append('updatefilename', 'true');
+
+    fetch('./api/files/replace', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Update the row in the table
+        updateRowAfterReplace(data);
+        // Close the modal
+        bootstrap.Modal.getInstance(document.getElementById('modalreplace')).hide();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while replacing the file. Please try again.');
+    });
+}
+
+function updateRowAfterReplace(fileInfo) {
+    const row = document.querySelector(`tr:has(#cell-name-${fileInfo.Id})`);
+    if (row) {
+        row.cells[0].textContent = fileInfo.Name;
+        row.cells[1].textContent = fileInfo.Size;
+        row.cells[1].setAttribute('data-order', fileInfo.SizeBytes);
+        // Update other cells as needed
+        
+        // Highlight the updated row
+        row.style.backgroundColor = "#4CAF50";
+        setTimeout(() => {
+            row.style.backgroundColor = "";
+        }, 3000);
+    }
+}

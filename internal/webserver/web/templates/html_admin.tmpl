@@ -87,6 +87,7 @@
 			{{ end }}
 						<button type="button" id="qrcode-{{ .Id }}" title="QR Code" class="btn btn-outline-light btn-sm" onclick="showQrCode('{{ .UrlDownload }}');"><i class="bi bi-qr-code"></i></button>
 						<button type="button" title="Edit" class="btn btn-outline-light btn-sm" onclick="showEditModal('{{.Name }}','{{.Id}}', {{.DownloadsRemaining }}, {{.ExpireAt }}, {{.IsPasswordProtected}}, {{.UnlimitedDownloads }}, {{.UnlimitedTime}});"><i class="bi bi-pencil"></i></button>
+						<button type="button" title="Replace" class="btn btn-outline-light btn-sm" onclick="showReplaceModal('{{.Id}}');"><i class="bi bi-arrow-repeat"></i></button>
 						<button type="button" title="Delete" class="btn btn-outline-danger btn-sm" onclick="window.location='./delete?id={{ .Id }}'"><i class="bi bi-trash3"></i></button></td>
 					</tr>
 		{{ end }}
@@ -137,6 +138,26 @@
 	    </div>
 	  </div>
 	</div>
+
+<!-- Modal for replacing file -->
+<div class="modal fade" id="modalreplace" tabindex="-1" aria-labelledby="m_replacelabel" aria-hidden="true">
+  <div class="modal-dialog gokapi-dialog">
+    <div class="modal-content gokapi-dialog">
+      <div class="modal-header">
+        <h1 class="modal-title fs-5" id="m_replacelabel">Replace File</h1>
+      </div>
+      <div class="modal-body">
+        <p>Select a new file to replace the existing one:</p>
+        <input type="file" id="replacefile" class="form-control">
+        <input type="hidden" id="replaceid">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="mb_replace" onclick="replaceFile();">Replace File</button>
+      </div>
+    </div>
+  </div>
+</div>
 	
 	
 
