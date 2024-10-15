@@ -780,7 +780,8 @@
             "description": "Password for this file to be set. No password will be used if empty"
           }
         }
-      },"duplicate": {
+      },
+      "duplicate": {
         "required": [
           "id"
         ],
@@ -811,7 +812,8 @@
             "description": "Sets a new filename. Filename will be unchanged if empty."
           }
         }
-    },"chunking": {
+      },
+      "chunking": {
         "required": [
           "file","uuid","filesize","offset"
         ],
@@ -835,7 +837,8 @@
             "description": "The chunk's offset starting at the beginning of the file"
           }
         }
-    },"chunkingcomplete": {
+      },
+      "chunkingcomplete": {
         "required": [
           "uuid","filename","filesize"
         ],
@@ -870,7 +873,7 @@
             "description": "Password for this file to be set. No password will be used if empty"
           }
         }
-    }
+      }
     },
     "securitySchemes": {
       "apikey": {

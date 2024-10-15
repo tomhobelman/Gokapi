@@ -375,63 +375,97 @@ func DuplicateFile(file models.File, parametersToChange int, newFileName string,
 
 // ReplaceFile replaces the content of an existing file while keeping its metadata
 func ReplaceFile(existingFileId string, newFileContent io.Reader, newFileHeader *multipart.FileHeader, updateFilename bool) (models.File, error) {
-	existingFile, ok := database.GetMetaDataById(existingFileId)
-	if !ok {
-		return models.File{}, errors.New("existing file not found")
-	}
+    existingFile, ok := database.GetMetaDataById(existingFileId)
+    if !ok {
+        return models.File{}, errors.New("existing file not found")
+    }
+    // Check if the new file size is allowed
+    if !isAllowedFileSize(newFileHeader.Size) {
+        return models.File{}, ErrorFileTooLarge
+    }
+    // Generate hash and encrypt the new file content
+    var hasBeenRenamed bool
+    reader, hash, tempFile, encInfo := generateHashAndEncrypt(newFileContent, newFileHeader)
+    defer deleteTempFile(tempFile, &hasBeenRenamed)
+    
+    // Create a backup of the old file
+    oldFilePath := filepath.Join(configuration.Get().DataDir, existingFile.SHA1)
+    backupFilePath := oldFilePath + ".bak"
+    
+    // Copy the old file to the backup file
+    err := copyFile(oldFilePath, backupFilePath)
+    if err != nil {
+        return models.File{}, fmt.Errorf("failed to create backup of old file: %w", err)
+    }
+    
+    // Delete the old file
+    if err := os.Remove(oldFilePath); err != nil && !os.IsNotExist(err) {
+        return models.File{}, fmt.Errorf("failed to remove old file: %w", err)
+    }
+    
+    // Update file metadata
+    newSHA1 := hex.EncodeToString(hash)
+    existingFile.SHA1 = newSHA1
+    existingFile.Size = helper.ByteCountSI(newFileHeader.Size)
+    existingFile.SizeBytes = newFileHeader.Size
+    existingFile.ContentType = newFileHeader.Header.Get("Content-Type")
+    existingFile.Encryption = encInfo
+    
+    // Save the new file
+    if !existingFile.IsLocalStorage() {
+        _, err := aws.Upload(reader, existingFile)
+        if err != nil {
+            // Restore from backup if upload fails
+            os.Rename(backupFilePath, oldFilePath)
+            return models.File{}, fmt.Errorf("failed to upload to cloud storage: %w", err)
+        }
+    } else {
+        newFilePath := filepath.Join(configuration.Get().DataDir, newSHA1)
+        destinationFile, err := os.OpenFile(newFilePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+        if err != nil {
+            // Restore from backup if file creation fails
+            os.Rename(backupFilePath, oldFilePath)
+            return models.File{}, fmt.Errorf("failed to create new file: %w", err)
+        }
+        defer destinationFile.Close()
+       
+        _, err = io.Copy(destinationFile, reader)
+        if err != nil {
+            // Restore from backup if writing fails
+            os.Rename(backupFilePath, oldFilePath)
+            return models.File{}, fmt.Errorf("failed to write new file content: %w", err)
+        }
+    }
+    
+    if updateFilename {
+        existingFile.Name = newFileHeader.Filename
+    }
+    // Save updated metadata
+    database.SaveMetaData(existingFile)
+    // Clean up the backup file
+    os.Remove(backupFilePath)
+    return existingFile, nil
+}
 
-	// Check if the new file size is allowed
-	if !isAllowedFileSize(newFileHeader.Size) {
-		return models.File{}, ErrorFileTooLarge
-	}
+func copyFile(src, dst string) error {
+    sourceFile, err := os.Open(src)
+    if err != nil {
+        return fmt.Errorf("failed to open source file: %w", err)
+    }
+    defer sourceFile.Close()
 
-	// Generate hash and encrypt the new file content
-	var hasBeenRenamed bool
-	reader, hash, tempFile, encInfo := generateHashAndEncrypt(newFileContent, newFileHeader)
-	defer deleteTempFile(tempFile, &hasBeenRenamed)
+    destFile, err := os.Create(dst)
+    if err != nil {
+        return fmt.Errorf("failed to create destination file: %w", err)
+    }
+    defer destFile.Close()
 
-	// Delete the old file
-	oldFilePath := filepath.Join(configuration.Get().DataDir, existingFile.SHA1)
-	if err := os.Remove(oldFilePath); err != nil && !os.IsNotExist(err) {
-		return models.File{}, fmt.Errorf("failed to remove old file: %w", err)
-	}
+    _, err = io.Copy(destFile, sourceFile)
+    if err != nil {
+        return fmt.Errorf("failed to copy file contents: %w", err)
+    }
 
-	// Update file metadata
-	newSHA1 := hex.EncodeToString(hash)
-	existingFile.SHA1 = newSHA1
-	existingFile.Size = helper.ByteCountSI(newFileHeader.Size)
-	existingFile.SizeBytes = newFileHeader.Size
-	existingFile.ContentType = newFileHeader.Header.Get("Content-Type")
-	existingFile.Encryption = encInfo
-
-	// Save the new file
-	if !existingFile.IsLocalStorage() {
-		_, err := aws.Upload(reader, existingFile)
-		if err != nil {
-			return models.File{}, fmt.Errorf("failed to upload to cloud storage: %w", err)
-		}
-	} else {
-		newFilePath := filepath.Join(configuration.Get().DataDir, newSHA1)
-		destinationFile, err := os.OpenFile(newFilePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-		if err != nil {
-			return models.File{}, fmt.Errorf("failed to create new file: %w", err)
-		}
-		defer destinationFile.Close()
-		
-		_, err = io.Copy(destinationFile, reader)
-		if err != nil {
-			return models.File{}, fmt.Errorf("failed to write new file content: %w", err)
-		}
-	}
-
-	if updateFilename {
-		existingFile.Name = newFileHeader.Filename
-	}
-
-	// Save updated metadata
-	database.SaveMetaData(existingFile)
-
-	return existingFile, nil
+    return nil
 }
 
 func hashFile(input io.Reader, useSalt bool) (string, error) {
